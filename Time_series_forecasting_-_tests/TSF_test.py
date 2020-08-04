@@ -1,4 +1,6 @@
 import os
+os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 import datetime
 
 import IPython
@@ -7,9 +9,9 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import seaborn as sns
+# import seaborn as sns
 import tensorflow as tf
-from tabulate import tabulate
+# from tabulate import tabulate
 
 
 mpl.rcParams['figure.figsize'] = (8, 6)
@@ -49,4 +51,13 @@ plot_features = df[plot_cols][:480]
 plot_features.index = date_time[:480]
 _ = plot_features.plot(subplots=True)
 plt.show()
-print(tabulate(df.describe().transpose()))
+#print(tabulate(df.describe().transpose()))
+
+# Distribution of the wind:
+plt.hist2d(df['wd (deg)'], df['wv (m/s)'], bins=(50, 50), vmax=400)
+plt.colorbar()
+plt.xlabel('Wind Direction [deg]')
+plt.ylabel('Wind Velocity [m/s]')
+plt.show()
+# Converting to vector:
+
