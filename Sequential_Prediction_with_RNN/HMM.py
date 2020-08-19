@@ -46,7 +46,7 @@ def markov_converter(markov_process):
 
 
 # Defining the process:
-N = 10 ** 5
+N = 10 ** 5 + 2
 samples = [random.choice(['A', 'B', 'C'])]
 for i in range(N):
     samples.append(markov_next(samples[i]))
@@ -84,7 +84,7 @@ plot(x_axis, np.argmax(y_train[:50], axis=1).reshape(1, -1), "Markov process of 
 # Creating RNN model and fit it:
 model_RNN = keras.Sequential()
 # Add a LSTM layer with 32 internal units.
-model_RNN.add(layers.LSTM(32, input_shape=(3, 1), return_sequences=False))  # time steps = 3, dim = 1
+model_RNN.add(layers.LSTM(32, input_shape=(3, 1), batch_size=32, return_sequences=False, stateful=True))  # time steps = 3, dim = 1
 # Add a Dense layer with 2 units - output is only 1 or 0 (as A or B/C)
 model_RNN.add(layers.Dense(2, activation='softmax'))
 model_RNN.summary()
