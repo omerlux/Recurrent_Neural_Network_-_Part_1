@@ -1,0 +1,74 @@
+import os
+import datetime
+import matplotlib.pyplot as plt
+import numpy as np
+import random
+import tensorflow as tf
+from tensorflow import keras
+from tensorflow.keras import layers
+
+os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+os.environ["CUDA_VISIBLE_DEVICES"] = "4"
+
+
+def SampleCreator(bits=10):
+    _x1 = np.random.randint(2 ** (bits - 1))
+    _x2 = np.random.randint(2 ** (bits - 1))
+    _y = _x1 + _x2
+
+    _x1 = bin(_x1)[2:].zfill(bits)
+    _x2 = bin(_x2)[2:].zfill(bits)
+    _y = bin(_y)[2:].zfill(bits)
+
+    _x1 = np.flip(np.array(list(_x1), dtype=int))
+    _x2 = np.flip(np.array(list(_x2), dtype=int))
+    _y = np.flip(np.array(list(_y), dtype=int))
+
+    return [_x1, _x2], _y
+
+
+if __name__ == "__main__":
+    N = 10 ** 6  # Samples train
+    M = 10 ** 2  # Samples test
+    steps_train = 30
+    steps_test = 63
+
+    data_train = [SampleCreator(bits=steps_train) for i in range(N)]
+    data_test = [SampleCreator(bits=steps_test) for i in range(M)]
+    x_train, y_train = np.array([np.transpose(z) for z, y in data_train]), \
+                    np.array([y for z, y in data_train])
+    x_test, y_test = np.array([np.transpose(z) for z, y in data_test]), \
+                   np.array([y for z, y in data_test])
+
+    y_train, y_test = y_train.reshape(-1, steps_train,), y_test.reshape(-1, steps_test,)
+
+    # --------------------MODEL - COMPILE & FIT--------------------
+    # Creating RNN model and fit it:
+    model_RNN = keras.Sequential()
+    # Add a LSTM layer with 64 internal units.
+    model_RNN.add(layers.LSTM(128, input_shape=(None, 2), return_sequences=True))  # time steps = 'dynamic', dim = 2
+    # Add a Dense layer with 1 units - output is only 1 or 0
+    model_RNN.add(layers.Dense(1))
+    model_RNN.summary()
+    # keras.utils.plot_model(model_RNN, "imgs/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")+'_Markov_Model_RNN.png', show_shapes=True) # Model scheme
+
+    model_RNN.compile(
+        loss="binary_crossentropy",
+        optimizer="RMSprop",
+        metrics=['accuracy'],
+    )
+    log_dir = "logs/fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + "_Sum"
+    tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
+    model_RNN.fit(
+        x_train, y_train, batch_size=300, epochs=25, verbose=1, callbacks=[tensorboard_callback]
+    )
+
+    # Prediction:
+    # We will check out all the different 5 consecutive numbers from the process
+
+    output_model = model_RNN.predict(x_test)
+    results = model_RNN.evaluate(x_test, y_test, batch_size=32)
+    print("Test loss:\t\t%f \n"
+          "Test accuracy:\t%.2f%%" % (results[0], results[1] * 100))
+
+
