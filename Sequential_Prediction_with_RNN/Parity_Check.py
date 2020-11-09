@@ -8,7 +8,10 @@ from tensorflow import keras
 from tensorflow.keras import layers
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "6"
+os.environ["CUDA_VISIBLE_DEVICES"] = "5"
+
+physical_devices = tf.config.list_physical_devices('GPU')
+tf.config.experimental.set_memory_growth(physical_devices[0], enable=True)
 
 
 def plot(x, y, title, legends=None):  # Legends should be list. Title is string
@@ -51,13 +54,15 @@ if __name__ == "__main__":
     N = 10 ** 3  # Samples train
     M = 10 ** 2  # Samples test
     steps = 100  # Sequence
+    epochs = 150
+    save = True
 
     data_train = [Sequence(m=steps) for i in range(N)]
     data_test = [Sequence(m=steps) for i in range(M)]
     x_train, y_train = np.array([z.getXY()[0] for z in data_train]).reshape(-1, steps, 1), \
                        np.array([z.getXY()[1] for z in data_train])
     x_test, y_test = np.array([z.getXY()[0] for z in data_test]).reshape(-1, steps, 1), \
-                       np.array([z.getXY()[1] for z in data_test])
+                     np.array([z.getXY()[1] for z in data_test])
 
     # --------------------MODEL - COMPILE & FIT--------------------
     # Creating RNN model and fit it:
@@ -65,7 +70,7 @@ if __name__ == "__main__":
     # Add a LSTM layer with 64 internal units.
     model_RNN.add(layers.LSTM(64, input_shape=(steps, 1), return_sequences=True))  # time steps = 'steps', dim = 1
     # Add a Dense layer with 1 units - output is only 1 or 0
-    model_RNN.add(layers.Dense(1))
+    model_RNN.add(layers.Dense(1, activation='sigmoid'))
     model_RNN.summary()
     # keras.utils.plot_model(model_RNN, "imgs/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")+'_Markov_Model_RNN.png', show_shapes=True) # Model scheme
 
@@ -74,11 +79,27 @@ if __name__ == "__main__":
         optimizer="RMSprop",
         metrics=['accuracy'],
     )
-    log_dir = "logs/fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + "_Parity"
-    tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
-    model_RNN.fit(
-        x_train, y_train, batch_size=32, epochs=100, verbose=1, callbacks=[tensorboard_callback]
+    # log_dir = "logs/fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + "_Parity"
+    # tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
+    history = model_RNN.fit(
+        x_train, y_train, batch_size=32, epochs=epochs, verbose=1, validation_data=(x_test, y_test), callbacks=[]
     )
+
+    # Graphs
+    x = range(epochs)
+    train_loss = history.history['loss']
+    valid_loss = history.history['val_loss']
+    plt.rcParams['axes.facecolor'] = 'white'
+    plt.plot(x, train_loss, linewidth=1, label='LSTM training')
+    plt.plot(x, valid_loss, linewidth=1, label='LSTM testing')
+    plt.grid(True, which='both', axis='both')
+    plt.title('Parity Check - Training CE of LSTM')
+    plt.xlabel('Epochs')
+    plt.ylabel('CE')
+    plt.legend()
+    if save:
+        plt.savefig("./imgs/Parity Check - Training CE of LSTM", dpi=800)
+    plt.show()
 
     # Prediction:
     # We will check out all the different 5 consecutive numbers from the process
@@ -87,3 +108,15 @@ if __name__ == "__main__":
     results = model_RNN.evaluate(x_test, y_test, batch_size=32)
     print("Test loss:\t\t%f \n"
           "Test accuracy:\t%.2f%%" % (results[0], results[1] * 100))
+
+    plt.rcParams['axes.facecolor'] = 'white'
+    plt.plot(range(100), output_model[0], linewidth=1, label='Predictions')
+    plt.plot(range(100), y_test[0], linewidth=1, label='Ground Truth', linestyle='dashed')
+    plt.grid(True, which='both', axis='both')
+    plt.title('Parity Check - LSTM Process Prediction of 100 samples')
+    plt.xlabel('Time')
+    plt.ylabel('Value')
+    plt.legend()
+    if save:
+        plt.savefig("./imgs/Parity Check - LSTM Process Prediction.png", dpi=800)
+    plt.show()

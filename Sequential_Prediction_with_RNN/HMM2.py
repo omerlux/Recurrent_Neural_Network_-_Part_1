@@ -1,7 +1,7 @@
 import os
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "6"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 import datetime
 import matplotlib.pyplot as plt
 import numpy as np
@@ -9,6 +9,9 @@ import random
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
+
+physical_devices = tf.config.list_physical_devices('GPU')
+tf.config.experimental.set_memory_growth(physical_devices[0], enable=True)
 
 
 def plot(x, y, title, legends=None):  # Legends should be list. Title is string
@@ -34,32 +37,51 @@ def markov_next(prev):
         return 'A'
     if prev == 'B':
         return 'C'
-    if prev == 'C' and prob <= 0.2:
+    if prev == 'C' and prob <= 0.8:
         return 'C'
     if prev == 'C':
         return 'A'
 
 
+def hmm(markov, p):
+    prob = np.random.uniform(0, 1)
+    if markov == 'A' and prob <= p:
+        return 1
+    if markov == 'A':
+        return 0
+    if markov == 'B' and prob <= p:
+        return 0
+    if markov == 'B':
+        return 1
+    if markov == 'C' and prob <= p:
+        return 0
+    if markov == 'C':
+        return 1
+
+
 def markov_converter(markov_process):
     """@:returns a markov process of numbers - not letters"""
-    return [[0, 1] if x == 'A' else ([1, 0] if x == 'B' else [1, 0]) for x in markov_process]
+    # Note: may change to sparse categorical cross-entropy
+    return [[1, 0, 0] if x == 'A' else ([0, 1, 0] if x == 'B' else [0, 0, 1]) for x in markov_process]
 
 
 # Defining the process:
 save = True
-epochs = 20
-past = 5
+epochs = 30
+past = 30
+probability = 0.5
 N = 10 ** 5 + past
 samples = [random.choice(['A', 'B', 'C'])]
 for i in range(N):
     samples.append(markov_next(samples[i]))
 
+
 # Section (a):
 # This is a Hidden Markov model - we only observe '0' or '1' but obliviously there are 3 different states
 print("The stationary distribution is:\n" +
-       "\tA = " + '%.5f' % (5 / 7.25) + "\n"
-       "\tB = " + '%.5f' % (1 / 7.25) + "\n"
-       "\tC = " + '%.5f' % (1.25 / 7.25) + "\n")
+      "\tA = " + '%.5f' % (5 / 7.25) + "\n"
+                                       "\tB = " + '%.5f' % (1 / 7.25) + "\n"
+                                                                        "\tC = " + '%.5f' % (1.25 / 7.25) + "\n")
 
 # Section(b) -
 # Generating train and test:
@@ -70,26 +92,42 @@ y_train = markov_converter(samples)
 x_train = []
 y_test = markov_converter(tests)
 x_test = []
-for i in range(past, N):
-    x_train.append(np.argmax(y_train[i-past:i], axis=1))
-    x_test.append(np.argmax(y_test[i-past:i], axis=1))
-x_train = (np.array(x_train)).reshape(-1, past, 1)
-y_train = np.array(y_train[past:N]).reshape(-1, 2, )   # y will be only 0 or 1...
-x_test = (np.array(x_test)).reshape(-1, past, 1)
-y_test = np.array(y_test[past:N]).reshape(-1, 2, )     # y will be only 0 or 1...
 
-# 50 samples of the process:
-x_axis = np.transpose(np.array(range(50)))
-plot(x_axis, np.argmax(y_train[:50], axis=1).reshape(1, -1), "Markov process of 50 samples")
+samples_hmm_train = []
+samples_hmm_test = []
+# creating the samples from the Bernoulli probabilities
+for i in range(N):
+    samples_hmm_train.append(hmm(samples[i], p=probability))
+    samples_hmm_test.append(hmm(tests[i], p=probability))
+
+# new y's for return seq = True at the output
+y_train_new = []
+y_test_new = []
+for i in range(past, N, past // 2):
+    x_train.append(samples_hmm_train[i - past:i])
+    x_test.append(samples_hmm_test[i - past:i])
+    y_train_new.append(y_train[i-past:i])
+    y_test_new.append(y_test[i - past:i])
+
+x_train = (np.array(x_train)).reshape(-1, past, 1)
+y_train = np.array(y_train_new).reshape(-1, past, 3)  # y will be only 0 or 1...
+x_test = (np.array(x_test)).reshape(-1, past, 1)
+y_test = np.array(y_test_new).reshape(-1, past, 3)  # y will be only 0 or 1...
+
+# # 50 samples of the process:
+# x_axis = np.transpose(np.array(range(50)))
+# plot(x_axis, np.argmax(y_train[:50], axis=1).reshape(1, -1), "Markov process of 50 samples")
 
 # --------------------MODEL - COMPILE & FIT--------------------
 
 # Creating RNN model and fit it:
 model_RNN = keras.Sequential()
 # Add a LSTM layer with 32 internal units.
-model_RNN.add(layers.LSTM(32, input_shape=(past, 1), return_sequences=False))  # time steps = 3, dim = 1
-# Add a Dense layer with 2 units - output is only 1 or 0 (as A or B/C)
-model_RNN.add(layers.Dense(2, activation='softmax'))
+model_RNN.add(layers.LSTM(32, input_shape=(past, 1), return_sequences=True))  # time steps = 3, dim = 1
+# NOTE: We can change the input time step to 1, because of markovity, and get the same result
+model_RNN.add(layers.LSTM(16, return_sequences=True))
+# Add a Dense layer with 3 units - output is 0 1 or 2 (as A B or C)
+model_RNN.add(layers.Dense(3, activation='softmax'))
 model_RNN.summary()
 # keras.utils.plot_model(model_RNN, "imgs/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")+'_Markov_Model_RNN.png', show_shapes=True) # Model scheme
 
@@ -101,22 +139,23 @@ model_RNN.compile(
 # log_dir = "logs/fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + "_Markov_Model_RNN"
 # tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
 history = model_RNN.fit(
-    x_train, y_train, batch_size=32, epochs=epochs, verbose=2  # , callbacks=[tensorboard_callback]
+    x_train, y_train, batch_size=32, epochs=epochs, verbose=2, validation_data=(x_test, y_test)  # , callbacks=[tensorboard_callback]
 )
 
 # Graphs
 x = range(epochs)
 train_loss = history.history['loss']
+valid_loss = history.history['val_loss']
 plt.rcParams['axes.facecolor'] = 'white'
 plt.plot(x, train_loss, linewidth=1, label='LSTM training')
-plt.plot(x, [0.4315]*epochs, linewidth=1, label='Entropy Rate (theoretical)')
+plt.plot(x, valid_loss, linewidth=1, label='LSTM testing')
 plt.grid(True, which='both', axis='both')
-plt.title('HMM - Training CE of LSTM')
+plt.title('HMM - Training CE of LSTM - probability {}'.format(probability))
 plt.xlabel('Epochs')
 plt.ylabel('CE')
 plt.legend()
 if save:
-    plt.savefig("./imgs/HMM - Training CE.png", dpi=800)
+    plt.savefig("./imgs/HMM - Training CE p={}.png".format(probability), dpi=800)
 plt.show()
 
 # Prediction:
@@ -127,7 +166,6 @@ P1 = out_vec[np.squeeze([(x[0] == 1) for x in x_test])]
 P0 = out_vec[np.squeeze([(x[0] == 0) for x in x_test])]
 P1 = np.transpose(sum(P1) / len(P1))
 P0 = np.transpose(sum(P0) / len(P0))
-
 
 print("The model as viewed transition matrix is:")
 print("Trnasition | out=0 | out =1 |")
@@ -147,7 +185,6 @@ P11 = np.transpose(sum(P11) / len(P11))
 P10 = np.transpose(sum(P10) / len(P10))
 P01 = np.transpose(sum(P01) / len(P01))
 P00 = np.transpose(sum(P00) / len(P00))
-
 
 print("The model hidden transition matrix is:")
 print("Trnasition | out=0 | out =1 |")
