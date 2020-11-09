@@ -12,8 +12,8 @@ Created:
 - ASCII char forecast on songs/books - Text_Prediction.py
 
 Please see `imgs/Homerwork set - RNN - part 1.pdf` for detailed results.
-<object data="https://github.com/omerlux/Recurrent_Neural_Network_-_Part_1/imgs/Homerwork set - RNN - part 1.pdf" width="700px" height="700px">
-    <embed src="https://github.com/omerlux/Recurrent_Neural_Network_-_Part_1/imgs/Homerwork set - RNN - part 1.pdf">
+<object data="https://github.com/omerlux/Recurrent_Neural_Network_-_Part_1/blob/master/Sequential_Prediction_with_RNN/imgs/Homerwork%20set%20-%20RNN%20-%20part%201.pdf" width="700px" height="700px">
+    <embed src="https://github.com/omerlux/Recurrent_Neural_Network_-_Part_1/blob/master/Sequential_Prediction_with_RNN/imgs/Homerwork%20set%20-%20RNN%20-%20part%201.pdf">
         <p>This browser does not support PDFs. Please download the PDF to view it: <a href="http://yoursite.com/the.pdf">Download PDF</a>.</p>
     </embed>
 </object>
