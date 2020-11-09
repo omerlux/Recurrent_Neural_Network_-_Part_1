@@ -12,4 +12,4 @@ Created:
 - ASCII char forecast on songs/books - Text_Prediction.py
 
 Please see `imgs/Homerwork set - RNN - part 1.pdf` for detailed results.
-[https://github.com/omerlux/Recurrent_Neural_Network_-_Part_1/blob/master/Sequential_Prediction_with_RNN/imgs/Homerwork%20set%20-%20RNN%20-%20part%201.pdf](detail)
+[Link is here!](https://github.com/omerlux/Recurrent_Neural_Network_-_Part_1/blob/master/Sequential_Prediction_with_RNN/imgs/Homerwork%20set%20-%20RNN%20-%20part%201.pdf)
